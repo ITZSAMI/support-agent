@@ -82,7 +82,7 @@ uvicorn app.main:app --reload
 ```bash
 streamlit run frontend/streamlit_app.py
 ```
-
+![Support agent demo](screenshots/screenshot4)
 ## Example interactions
 
 > **User:** Where is my order ORD-1001?
