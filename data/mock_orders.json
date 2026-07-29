@@ -1,0 +1,20 @@
+{
+  "ORD-1001": {
+    "status": "in_transit",
+    "destination": "Berlin, DE",
+    "carrier": "DHL",
+    "estimated_delivery": "2026-07-27"
+  },
+  "ORD-1002": {
+    "status": "delivered",
+    "destination": "Munich, DE",
+    "carrier": "Hermes",
+    "estimated_delivery": "2026-07-20"
+  },
+  "ORD-1003": {
+    "status": "delayed",
+    "destination": "Paris, FR",
+    "carrier": "GLS",
+    "estimated_delivery": "2026-07-30"
+  }
+}
