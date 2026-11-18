@@ -58,17 +58,25 @@ support-agent/
 
 ## Setup
 
+Requires **Python 3.11–3.14**. (Python 3.15 is not supported yet, because
+Chroma's embedding runtime, `onnxruntime`, has no build for it.)
+
 ```bash
-python -m venv venv && source venv/bin/activate
+python3.13 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
 # then add your ANTHROPIC_API_KEY to .env
+# (optional: set ANTHROPIC_MODEL to use a different Claude model)
 
 # Ingest the knowledge base into the local vector store (run once,
 # or again after editing data/docs/*.md)
 python -m app.rag.ingest
 ```
+
+Embeddings use `all-MiniLM-L6-v2`, run locally through ONNX Runtime (no
+PyTorch, no API key). The model is downloaded once (about 80 MB) on the
+first ingest.
 
 ## Running it
 
@@ -115,6 +123,31 @@ streamlit run frontend/streamlit_app.py
   }
 }
 ```
+
+## Reliability
+
+- **Tool failures don't crash a request.** If a tool raises an error (for
+  example, the knowledge base hasn't been ingested yet), the error is sent
+  back to the model as a tool result with `is_error`, so it can apologise or
+  escalate instead of the API returning a 500.
+- **The loop is capped** at 5 tool rounds. If the agent still hasn't
+  answered, it creates a real support ticket, so the answer, the ticket log
+  and the escalation metrics all agree.
+- **Tool results are sent as JSON**, not Python object text.
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+15 tests, no API key or network needed. The agent tests run the real
+Anthropic SDK against a mock HTTP transport with scripted responses
+(direct answer, tool use, failing tool, unknown tool, escalation, running
+out of rounds). The RAG tests ingest the FAQ into a real Chroma store using
+a small fake embedding function. CI runs lint and tests on Python 3.11–3.14
+for every push.
 
 ## Possible extensions
 

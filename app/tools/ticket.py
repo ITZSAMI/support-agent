@@ -1,11 +1,9 @@
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-TICKETS_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "logs", "tickets.jsonl"
-)
+TICKETS_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "logs", "tickets.jsonl")
 
 TOOL_SCHEMA = {
     "name": "create_support_ticket",
@@ -38,7 +36,7 @@ def run(issue_summary: str, priority: str) -> dict:
         "ticket_id": f"TICKET-{uuid.uuid4().hex[:8].upper()}",
         "issue_summary": issue_summary,
         "priority": priority,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
     os.makedirs(os.path.dirname(TICKETS_PATH), exist_ok=True)

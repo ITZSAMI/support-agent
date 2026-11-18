@@ -4,8 +4,10 @@ Quick demo UI for the support agent.
 Run with:
     streamlit run frontend/streamlit_app.py
 """
-import sys
+
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import streamlit as st
@@ -40,11 +42,13 @@ if prompt := st.chat_input("e.g. 'Where is my order ORD-1001?'"):
         st.write(result["answer"])
         if result["tool_calls"]:
             st.caption(f"🔧 tools used: {', '.join(result['tool_calls'])}")
-    st.session_state.history.append({
-        "role": "assistant",
-        "content": result["answer"],
-        "tool_calls": result["tool_calls"],
-    })
+    st.session_state.history.append(
+        {
+            "role": "assistant",
+            "content": result["answer"],
+            "tool_calls": result["tool_calls"],
+        }
+    )
 
 with st.sidebar:
     st.subheader("Metrics")

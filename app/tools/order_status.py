@@ -1,9 +1,7 @@
 import json
 import os
 
-DATA_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "data", "mock_orders.json"
-)
+DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "mock_orders.json")
 
 TOOL_SCHEMA = {
     "name": "check_order_status",
@@ -25,7 +23,7 @@ TOOL_SCHEMA = {
 
 
 def run(order_id: str) -> dict:
-    with open(DATA_PATH, "r", encoding="utf-8") as f:
+    with open(DATA_PATH, encoding="utf-8") as f:
         orders = json.load(f)
 
     order = orders.get(order_id.upper())

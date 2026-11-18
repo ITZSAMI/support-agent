@@ -1,25 +1,28 @@
-import os
 import chromadb
-from chromadb.utils import embedding_functions
+from chromadb.errors import NotFoundError
 
-DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_store")
-COLLECTION_NAME = "support_kb"
+from app.rag.store import COLLECTION_NAME, DB_PATH, default_embedding_function
 
-_client = None
 _collection = None
+
+
+class KnowledgeBaseNotReady(RuntimeError):
+    pass
 
 
 def _get_collection():
     """Lazy singleton so we don't reopen the DB on every tool call."""
-    global _client, _collection
+    global _collection
     if _collection is None:
-        _client = chromadb.PersistentClient(path=DB_PATH)
-        embed_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
-        )
-        _collection = _client.get_collection(
-            name=COLLECTION_NAME, embedding_function=embed_fn
-        )
+        client = chromadb.PersistentClient(path=DB_PATH)
+        try:
+            _collection = client.get_collection(
+                name=COLLECTION_NAME, embedding_function=default_embedding_function()
+            )
+        except NotFoundError as exc:
+            raise KnowledgeBaseNotReady(
+                "Knowledge base not found. Run `python -m app.rag.ingest` first."
+            ) from exc
     return _collection
 
 
@@ -30,7 +33,7 @@ def search(query: str, n_results: int = 3) -> list[dict]:
 
     hits = []
     for doc, meta, dist in zip(
-        results["documents"][0], results["metadatas"][0], results["distances"][0]
+        results["documents"][0], results["metadatas"][0], results["distances"][0], strict=True
     ):
         hits.append({"text": doc, "source": meta["source"], "distance": dist})
     return hits

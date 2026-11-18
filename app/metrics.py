@@ -3,11 +3,12 @@ Structured logging for every agent interaction, so the project can back up
 claims like "resolved without escalation" or "average latency" with real
 numbers instead of vibes.
 """
+
 import json
 import os
 import time
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 LOG_PATH = os.path.join(os.path.dirname(__file__), "..", "logs", "interactions.jsonl")
 
@@ -18,7 +19,7 @@ def track_interaction(user_query: str):
     ended in an escalation (ticket) vs. a direct resolution.
     """
     record = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "query": user_query,
         "tool_calls": [],
         "escalated": False,
@@ -49,7 +50,7 @@ def summarize() -> dict:
     latencies = []
     tool_usage = {}
 
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
+    with open(LOG_PATH, encoding="utf-8") as f:
         for line in f:
             row = json.loads(line)
             total += 1

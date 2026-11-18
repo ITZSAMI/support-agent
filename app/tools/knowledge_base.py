@@ -26,7 +26,5 @@ def run(query: str) -> dict:
         return {"found": False, "results": []}
     return {
         "found": True,
-        "results": [
-            {"excerpt": h["text"], "source": h["source"]} for h in hits
-        ],
+        "results": [{"excerpt": h["text"], "source": h["source"]} for h in hits],
     }

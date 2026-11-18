@@ -7,14 +7,17 @@ This is the "agentic" layer that turns plain RAG into something that can
 also act (look up an order, file a ticket) — the piece that most student
 RAG projects skip.
 """
-import os 
-from typing import Optional
+
+import json
+import os
+
 from anthropic import Anthropic
 
-from app.tools import knowledge_base, order_status, ticket
 from app.metrics import track_interaction
+from app.tools import knowledge_base, order_status, ticket
 
-MODEL = "claude-sonnet-4-6"
+MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5")
+MAX_TOOL_ROUNDS = 5
 
 SYSTEM_PROMPT = """You are a customer support agent for a European parcel
 delivery company. Answer questions using the search_knowledge_base tool for
@@ -40,14 +43,22 @@ TOOL_IMPLEMENTATIONS = {
 }
 
 
-def _execute_tool(name: str, tool_input: dict) -> dict:
+def _execute_tool(name: str, tool_input: dict) -> tuple[dict, bool]:
+    """Run one tool. Returns (result, is_error).
+
+    A failing tool must not crash the whole request: the error goes back to
+    the model as a tool result, so it can apologise, retry or escalate.
+    """
     impl = TOOL_IMPLEMENTATIONS.get(name)
     if impl is None:
-        return {"error": f"Unknown tool '{name}'"}
-    return impl(**tool_input)
+        return {"error": f"Unknown tool '{name}'"}, True
+    try:
+        return impl(**tool_input), False
+    except Exception as exc:  # noqa: BLE001 - report any tool failure to the model
+        return {"error": f"{type(exc).__name__}: {exc}"}, True
 
 
-def handle_message(user_message: str, client: Optional[Anthropic] = None) -> dict:
+def handle_message(user_message: str, client: Anthropic | None = None) -> dict:
     """Run one full agent turn for a single user message.
 
     Returns a dict with the final answer text and a trace of tool calls,
@@ -59,7 +70,7 @@ def handle_message(user_message: str, client: Optional[Anthropic] = None) -> dic
         messages = [{"role": "user", "content": user_message}]
 
         # Cap iterations so a confused agent can't loop forever.
-        for _ in range(5):
+        for _ in range(MAX_TOOL_ROUNDS):
             response = client.messages.create(
                 model=MODEL,
                 max_tokens=1024,
@@ -90,17 +101,31 @@ def handle_message(user_message: str, client: Optional[Anthropic] = None) -> dic
                 if block.name == "create_support_ticket":
                     record["escalated"] = True
 
-                result = _execute_tool(block.name, block.input)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": str(result),
-                })
+                result, is_error = _execute_tool(block.name, block.input)
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(result),
+                        "is_error": is_error,
+                    }
+                )
 
             messages.append({"role": "user", "content": tool_results})
 
+        # Out of rounds: actually escalate, so the answer and the metrics
+        # both match what happened.
+        new_ticket = ticket.run(
+            issue_summary=f"Agent could not resolve automatically: {user_message}",
+            priority="medium",
+        )
+        record["tool_calls"].append("create_support_ticket")
+        record["escalated"] = True
         return {
-            "answer": "Sorry, I wasn't able to resolve this — escalating to a human agent.",
+            "answer": (
+                "Sorry, I wasn't able to resolve this myself. I've passed it to a "
+                f"human agent (ticket {new_ticket['ticket_id']})."
+            ),
             "tool_calls": record["tool_calls"],
-            "escalated": record["escalated"],
+            "escalated": True,
         }
